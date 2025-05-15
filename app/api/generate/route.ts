@@ -13,41 +13,41 @@ const GENERATION_TIMEOUT = 60000; // 60 seconds
 
 export async function POST(request: NextRequest) {
   // Rate limiting (create this middleware in lib/rate-limit.ts)
-  try {
-    const { success, limit, remaining } = await rateLimit.check(
-      request.ip || "anonymous"
-    );
+  // try {
+  //   const { success, limit, remaining } = await rateLimit.check(
+  //     request.ip || "anonymous"
+  //   );
 
-    if (!success) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: "Rate limit exceeded. Please try again later."
-        },
-        { 
-          status: 429,
-          headers: {
-            "X-RateLimit-Limit": limit.toString(),
-            "X-RateLimit-Remaining": remaining.toString(),
-          }
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Rate limiting error:", error);
-    // Continue if rate limiting fails - don't block users due to internal errors
-  }
+  //   if (!success) {
+  //     return NextResponse.json(
+  //       { 
+  //         success: false, 
+  //         message: "Rate limit exceeded. Please try again later."
+  //       },
+  //       { 
+  //         status: 429,
+  //         headers: {
+  //           "X-RateLimit-Limit": limit.toString(),
+  //           "X-RateLimit-Remaining": remaining.toString(),
+  //         }
+  //       }
+  //     );
+  //   }
+  // } catch (error) {
+  //   console.error("Rate limiting error:", error);
+  //   // Continue if rate limiting fails - don't block users due to internal errors
+  // }
 
   try {
     // Parse request body with error handling
     const body = await request.json().catch(() => ({}));
-    const { resumeText, linkedInUrl } = body;
+     const { resumeText, linkedInUrl, linkedInData, githubUsername } = body;
     
     // Validate input - need either resume text or LinkedIn URL
-    if (!resumeText && !linkedInUrl) {
+     if (!resumeText && !linkedInUrl && !githubUsername) {
       return NextResponse.json({ 
         success: false, 
-        message: "Either resume text or LinkedIn URL is required" 
+        message: "Either resume text, LinkedIn URL, or GitHub username is required" 
       }, { status: 400 });
     }
     
@@ -65,13 +65,58 @@ export async function POST(request: NextRequest) {
         message: "Invalid LinkedIn URL format" 
       }, { status: 400 });
     }
+
+     // Additional validation
+    if (resumeText && resumeText.length > MAX_RESUME_LENGTH) {
+      return NextResponse.json({ 
+        success: false, 
+        message: `Resume text exceeds maximum length of ${MAX_RESUME_LENGTH} characters` 
+      }, { status: 400 });
+    }
+    
+    if (linkedInUrl && !isValidLinkedInUrl(linkedInUrl)) {
+      return NextResponse.json({ 
+        success: false, 
+        message: "Invalid LinkedIn URL format" 
+      }, { status: 400 });
+    }
+    
+    if (githubUsername && !isValidGithubUsername(githubUsername)) {
+      return NextResponse.json({ 
+        success: false, 
+        message: "Invalid GitHub username format" 
+      }, { status: 400 });
+    }
     
     let profileData;
     
     // Process LinkedIn URL if provided
-    if (linkedInUrl && !resumeText) {
+    if (githubUsername) {
       try {
-        profileData = await fetchLinkedInProfile(linkedInUrl);
+        profileData = await fetchGithubProfile(githubUsername);
+        
+        if (!profileData) {
+          throw new Error("Failed to extract GitHub profile data");
+        }
+      } catch (error) {
+        console.error("GitHub profile fetch error:", error);
+        return NextResponse.json({ 
+          success: false, 
+          message: "Could not extract profile from GitHub. Please verify your username is correct or try another input method.",
+          error: error instanceof Error ? error.message : "Unknown error"
+        }, { status: 422 });
+      }
+    }
+    // Process LinkedIn URL if provided (and no GitHub data)
+    else if ((linkedInUrl || linkedInData) && !resumeText) {
+      try {
+        if (linkedInData) {
+          // Use the directly uploaded LinkedIn data
+          profileData = linkedInData;
+        } else {
+          // Use the URL-based approach (with limitations)
+          profileData = await fetchLinkedInProfile(linkedInUrl);
+        }
         
         if (!profileData) {
           throw new Error("Failed to extract LinkedIn profile data");
@@ -136,6 +181,93 @@ export async function POST(request: NextRequest) {
       message: "Error generating portfolio",
       error: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
+  }
+}
+
+
+// Add GitHub username validation function
+function isValidGithubUsername(username: string): boolean {
+  // GitHub username rules:
+  // - Can only contain alphanumeric characters and hyphens
+  // - Cannot have multiple consecutive hyphens
+  // - Cannot begin or end with a hyphen
+  // - Maximum 39 characters
+  const githubUsernamePattern = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
+  return githubUsernamePattern.test(username);
+}
+
+// Function to fetch GitHub profile data
+async function fetchGithubProfile(username: string) {
+  try {
+    // Fetch basic user data
+    const userResponse = await fetch(`https://api.github.com/users/${username}`, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'PortfolioGenerator',
+        ...(process.env.GITHUB_TOKEN ? { 'Authorization': `token ${process.env.GITHUB_TOKEN}` } : {})
+      },
+    });
+    
+    if (!userResponse.ok) {
+      throw new Error(`GitHub API returned ${userResponse.status}`);
+    }
+    
+    const userData = await userResponse.json();
+    
+    // Fetch repositories
+    const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=10`, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'PortfolioGenerator',
+        ...(process.env.GITHUB_TOKEN ? { 'Authorization': `token ${process.env.GITHUB_TOKEN}` } : {})
+      },
+    });
+    
+    if (!reposResponse.ok) {
+      throw new Error(`GitHub repos API returned ${reposResponse.status}`);
+    }
+    
+    const reposData = await reposResponse.json();
+    
+    // Process and extract relevant data
+    const repositories = reposData.map((repo: any) => ({
+      name: repo.name,
+      description: repo.description || '',
+      url: repo.html_url,
+      stars: repo.stargazers_count,
+      forks: repo.forks_count,
+      language: repo.language || 'Not specified',
+      isForked: repo.fork
+    })).filter((repo: any) => !repo.isForked).slice(0, 6); // Filter out forks and limit to top 6
+    
+    // Extract languages from repositories
+    const languages = [...new Set(repositories
+      .map((repo: any) => repo.language)
+      .filter((lang: string) => lang && lang !== 'Not specified'))];
+    
+    // Create profile object
+    return {
+      source: 'github',
+      name: userData.name || username,
+      username: username,
+      avatarUrl: userData.avatar_url,
+      bio: userData.bio || '',
+      location: userData.location || '',
+      company: userData.company || '',
+      blog: userData.blog || '',
+      twitter: userData.twitter_username || '',
+      followers: userData.followers,
+      following: userData.following,
+      publicRepos: userData.public_repos,
+      repositories: repositories,
+      languages: languages,
+      skills: languages, // Use languages as skills
+      joined: new Date(userData.created_at).getFullYear(),
+      githubUrl: userData.html_url
+    };
+  } catch (error) {
+    console.error("GitHub fetch error:", error);
+    throw new Error(`GitHub profile extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 
@@ -236,7 +368,7 @@ async function generatePortfolioWithAI(profileData: any) {
     const prompt = createAIPrompt(profileData);
     
     const completion = await groq.chat.completions.create({
-      model: "llama3-70b-8192",
+      model: "meta-llama/llama-4-maverick-17b-128e-instruct",
       messages: [
         {
           role: "system",
@@ -300,9 +432,59 @@ function isValidHTML(html: string): boolean {
   return hasHtmlTag && hasBodyTag && hasClosingTags;
 }
 
-// Function to create prompt for AI based on profile data
+// Update your createAIPrompt function to handle GitHub data
 function createAIPrompt(profileData: any) {
-  if (profileData.resumeText) {
+  if (profileData.source === 'github') {
+    return `
+      Create a portfolio website for a developer with the following GitHub profile:
+      
+      Name: ${profileData.name}
+      GitHub Username: ${profileData.username}
+      Bio: ${profileData.bio}
+      Location: ${profileData.location}
+      Company: ${profileData.company}
+      Website: ${profileData.blog}
+      Twitter: ${profileData.twitter}
+      
+      GitHub Stats:
+      - Followers: ${profileData.followers}
+      - Following: ${profileData.following}
+      - Public Repositories: ${profileData.publicRepos}
+      - Joined GitHub: ${profileData.joined}
+      
+      Top Repositories:
+      ${profileData.repositories.map((repo: any) => 
+        `- ${repo.name}: ${repo.description} 
+           Language: ${repo.language}, Stars: ${repo.stars}, Forks: ${repo.forks}
+           URL: ${repo.url}`
+      ).join('\n')}
+      
+      Programming Languages & Skills: ${profileData.languages.join(', ')}
+      
+      The portfolio should include:
+      1. A modern, professional design using Tailwind CSS
+      2. A hero section with name, GitHub username, and brief introduction
+      3. About section with professional summary based on the bio
+      4. Projects section showcasing the repositories with descriptions and links
+      5. Skills section highlighting programming languages and technologies
+      6. GitHub stats section showing activity and contributions
+      7. Contact section with links to GitHub profile and other social media
+      8. Navigation menu
+      
+      Important:
+      - Return complete, valid HTML with DOCTYPE, html, head, and body tags
+      - Use only Tailwind CSS classes for styling (no custom CSS)
+      - Make it responsive for mobile and desktop
+      - Use semantic HTML elements
+      - Include GitHub-styled elements and icons where appropriate
+      - Focus on creating a developer-oriented portfolio that showcases coding skills
+      - Include links to the GitHub repositories
+      - Don't include JavaScript functionality for the contact form
+      
+      Return the complete HTML document (DOCTYPE, html, head, body tags).
+    `;
+  } else if (profileData.resumeText) {
+    // Your existing prompt for resume text
     return `
       Create a portfolio website using the following resume information:
       
@@ -328,7 +510,7 @@ function createAIPrompt(profileData: any) {
       Return the complete HTML document (DOCTYPE, html, head, body tags).
     `;
   } else {
-    // Create prompt from structured LinkedIn data
+    // Your existing prompt for LinkedIn data
     return `
       Create a portfolio website for a professional with the following details:
       
@@ -373,6 +555,17 @@ function createAIPrompt(profileData: any) {
 // Function to extract metadata from generated HTML
 function extractMetadata(html: string, profileData: any) {
   // If we already have structured data, use it
+   if (profileData.source === 'github') {
+    return {
+      name: profileData.name,
+      title: `Software Developer${profileData.languages.length > 0 ? ` (${profileData.languages.slice(0, 3).join(', ')})` : ''}`,
+      skills: profileData.languages,
+      github: profileData.username,
+      source: "github"
+    };
+  }
+  
+  // If we already have structured LinkedIn data, use it
   if (!profileData.resumeText) {
     return {
       name: profileData.name,
