@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Tab } from '@headlessui/react';
-import { FileText, Linkedin, PenTool, Upload, ArrowRight, AlertCircle } from 'lucide-react';
+import { FileText, Linkedin, PenTool, Upload, ArrowRight, AlertCircle, Github } from 'lucide-react';
 import { Document, Page, pdfjs } from "react-pdf";
 
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
@@ -13,6 +13,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 export default function PortfolioForm({ onSubmit, loading }: any) {
   const [formData, setFormData] = useState({
     linkedInUrl: '',
+    githubUsername: '',
     resumeText: '',
     name: '',
     title: '',
@@ -22,15 +23,22 @@ export default function PortfolioForm({ onSubmit, loading }: any) {
     jobDescription: '',
     linkedInData: null,
     useLinkedIn: false,
+    useGithub: false,
     resumeFile: null
   });
   const [fileError, setFileError] = useState('');
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [linkedinMethod, setLinkedinMethod] = useState<'export' | 'url'>('url');
+  const [githubError, setGithubError] = useState('');
   
-  const handleChange = (e: any) => {
+   const handleChange = (e: any) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear GitHub error when username input changes
+    if (name === 'githubUsername') {
+      setGithubError('');
+    }
   };
 
   const extractTextFromPdf = async (file: File): Promise<string> => {
@@ -98,12 +106,40 @@ const handleFileUpload = async (e: any) => {
     }
   };
 
+  const isValidGithubUsername = (username: string): boolean => {
+  // GitHub username rules:
+  // - Can only contain alphanumeric characters and hyphens
+  // - Cannot have multiple consecutive hyphens
+  // - Cannot begin or end with a hyphen
+  // - Maximum 39 characters
+  const githubUsernamePattern = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
+  return githubUsernamePattern.test(username);
+};
+  const validateGithubUsername = () => {
+    if (!formData.githubUsername) {
+      setGithubError('GitHub username is required');
+      return false;
+    }
+    
+    if (!isValidGithubUsername(formData.githubUsername)) {
+      setGithubError('Invalid GitHub username format');
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     
     let payload = {};
     
-   if (formData.useLinkedIn) {
+    if (formData.useGithub) {
+      // Validate GitHub username before submission
+      if (!validateGithubUsername()) return;
+      
+      payload = { githubUsername: formData.githubUsername };
+    } else if (formData.useLinkedIn) {
       if (linkedinMethod === 'export' && formData.linkedInData) {
         // Send the extracted LinkedIn data directly
         payload = { linkedInData: formData.linkedInData };
@@ -153,13 +189,28 @@ const handleFileUpload = async (e: any) => {
   };
 
   
+
+  
+
+  
   
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
-      <Tab.Group onChange={(index: any) => setFormData(prev => ({
-        ...prev,
-        useLinkedIn: index === 1
-      }))}>
+      <Tab.Group onChange={(index: number) => {
+          // Reset all flags
+          setFormData(prev => ({
+            ...prev,
+            useLinkedIn: false,
+            useGithub: false
+          }));
+          
+          // Set appropriate flag based on selected tab
+          if (index === 1) { // LinkedIn tab
+            setFormData(prev => ({ ...prev, useLinkedIn: true }));
+          } else if (index === 2) { // GitHub tab
+            setFormData(prev => ({ ...prev, useGithub: true }));
+          }
+        }}>
         <Tab.List className="flex bg-gray-50 border-b border-gray-200 px-4">
           <Tab className={({ selected }: any) => `
             px-4 py-3 text-sm font-medium flex items-center gap-2
@@ -176,6 +227,14 @@ const handleFileUpload = async (e: any) => {
           `}>
             <Linkedin className="w-4 h-4" />
             LinkedIn
+          </Tab>
+          <Tab className={({ selected }: any) => `
+            px-4 py-3 text-sm font-medium flex items-center gap-2
+            ${selected ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}
+            focus:outline-none transition-colors
+          `}>
+            <Github className="w-4 h-4" />
+            GitHub
           </Tab>
           <Tab className={({ selected }: any) => `
             px-4 py-3 text-sm font-medium flex items-center gap-2
@@ -327,6 +386,90 @@ const handleFileUpload = async (e: any) => {
               </div>
             </div>
           </Tab.Panel>
+          {/* GitHub Panel - New */}
+          <Tab.Panel>
+            <div className="space-y-6">
+              <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
+                <div className="flex items-start gap-3">
+                  <div className="bg-indigo-100 p-2 rounded-lg">
+                    <Github className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-indigo-800 mb-1">GitHub Profile</h4>
+                    <p className="text-sm text-indigo-700 mb-4">
+                      We'll create a developer portfolio showcasing your GitHub projects, contributions, and skills
+                    </p>
+                    
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      GitHub Username
+                    </label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-500 text-gray text-sm">
+                        github.com/
+                      </span>
+                      <input
+                        type="text"
+                        name="githubUsername"
+                        className="flex-1 text-black min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="username"
+                        value={formData.githubUsername}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    
+                    {githubError && (
+                      <div className="mt-2 text-sm text-red-600 flex items-center">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        {githubError}
+                      </div>
+                    )}
+                    
+                    <div className="bg-white p-4 rounded-lg border border-gray-200 mt-4">
+                      <h5 className="font-medium text-gray-800 mb-2">What we'll include:</h5>
+                      <ul className="space-y-2 text-sm text-gray-600">
+                        <li className="flex items-start">
+                          <div className="bg-green-100 p-1 rounded-full mr-2 mt-0.5">
+                            <svg className="h-3 w-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span>Your top repositories and projects</span>
+                        </li>
+                        <li className="flex items-start">
+                          <div className="bg-green-100 p-1 rounded-full mr-2 mt-0.5">
+                            <svg className="h-3 w-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span>Programming languages and technologies you use</span>
+                        </li>
+                        <li className="flex items-start">
+                          <div className="bg-green-100 p-1 rounded-full mr-2 mt-0.5">
+                            <svg className="h-3 w-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span>GitHub statistics and activity</span>
+                        </li>
+                        <li className="flex items-start">
+                          <div className="bg-green-100 p-1 rounded-full mr-2 mt-0.5">
+                            <svg className="h-3 w-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span>Professional developer portfolio formatting</span>
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <p className="mt-4 text-xs text-gray-500">
+                      We only access public GitHub information. For private repositories, consider adding them manually or through your resume.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Tab.Panel>
           
           <Tab.Panel>
             <div className="space-y-6">
@@ -429,28 +572,30 @@ const handleFileUpload = async (e: any) => {
       
       <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
         <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={loading || 
-            (formData.useLinkedIn && !formData.linkedInUrl) || 
-            (!formData.useLinkedIn && !formData.resumeText && !formData.name)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Generating...
-            </>
-          ) : (
-            <>
-              Generate Portfolio
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading || 
+              (formData.useLinkedIn && linkedinMethod === 'url' && !formData.linkedInUrl) || 
+              (formData.useLinkedIn && linkedinMethod === 'export' && !formData.linkedInData) ||
+              (formData.useGithub && !formData.githubUsername) ||
+              (!formData.useLinkedIn && !formData.useGithub && !formData.resumeText && !formData.name)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Generating...
+              </>
+            ) : (
+              <>
+                Generate Portfolio
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
       </div>
     </div>
   );
