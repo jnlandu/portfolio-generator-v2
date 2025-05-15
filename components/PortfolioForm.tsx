@@ -5,6 +5,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
+import LinkedInDataUpload from './LinkedInDataUpload';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -19,11 +20,13 @@ export default function PortfolioForm({ onSubmit, loading }: any) {
     jobTitle: '',
     jobPeriod: '',
     jobDescription: '',
+    linkedInData: null,
     useLinkedIn: false,
     resumeFile: null
   });
   const [fileError, setFileError] = useState('');
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [linkedinMethod, setLinkedinMethod] = useState<'export' | 'url'>('url');
   
   const handleChange = (e: any) => {
     const { name, value } = e.target;
@@ -100,8 +103,14 @@ const handleFileUpload = async (e: any) => {
     
     let payload = {};
     
-    if (formData.useLinkedIn) {
-      payload = { linkedInUrl: formData.linkedInUrl };
+   if (formData.useLinkedIn) {
+      if (linkedinMethod === 'export' && formData.linkedInData) {
+        // Send the extracted LinkedIn data directly
+        payload = { linkedInData: formData.linkedInData };
+      } else {
+        // Send the LinkedIn URL
+        payload = { linkedInUrl: formData.linkedInUrl };
+      }
     } else if (formData.resumeText) {
       payload = { resumeText: formData.resumeText };
     } else {
@@ -236,26 +245,85 @@ const handleFileUpload = async (e: any) => {
             </div>
           </Tab.Panel>
           
+ 
           <Tab.Panel>
             <div className="space-y-6">
               <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
                 <h4 className="font-medium text-indigo-800 mb-1">LinkedIn Profile</h4>
-                <p className="text-sm text-indigo-700 mb-4">We'll extract your professional details from your public profile</p>
                 
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  LinkedIn URL
-                </label>
-                <input
-                  type="url"
-                  name="linkedInUrl"
-                  className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="https://linkedin.com/in/yourprofile"
-                  value={formData.linkedInUrl}
-                  onChange={handleChange}
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Make sure your profile is public. We only extract the information visible to everyone.
-                </p>
+                <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
+                  <h5 className="font-medium text-gray-800 mb-2">Choose how to use your LinkedIn data:</h5>
+                  
+                  <div className="space-y-4 mt-4">
+                    <div className="flex items-start">
+                      <input
+                        id="linkedin-export"
+                        name="linkedinMethod"
+                        type="radio"
+                        value="export"
+                        className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                        checked={linkedinMethod === 'export'}
+                        onChange={() => setLinkedinMethod('export')}
+                      />
+                      <label htmlFor="linkedin-export" className="ml-3">
+                        <span className="block text-sm font-medium text-gray-700">Upload LinkedIn Export (Recommended)</span>
+                        <span className="block text-xs text-gray-500">Most accurate method - upload your data export</span>
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-start">
+                      <input
+                        id="linkedin-url"
+                        name="linkedinMethod"
+                        type="radio"
+                        value="url"
+                        className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                        checked={linkedinMethod === 'url'}
+                        onChange={() => setLinkedinMethod('url')}
+                      />
+                      <label htmlFor="linkedin-url" className="ml-3">
+                        <span className="block text-sm font-medium text-gray-700">LinkedIn Profile URL</span>
+                        <span className="block text-xs text-gray-500">Limited data - you'll need to review the generated portfolio</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                
+                {linkedinMethod === 'export' ? (
+                  <LinkedInDataUpload 
+                    onDataExtracted={(data) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        linkedInData: data,
+                        useLinkedIn: true
+                      }));
+                    }}
+                  />
+                ) : (
+                  <>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      LinkedIn URL
+                    </label>
+                    <input
+                      type="url"
+                      name="linkedInUrl"
+                      className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="https://linkedin.com/in/yourprofile"
+                      value={formData.linkedInUrl}
+                      onChange={handleChange}
+                    />
+                    <p className="mt-2 text-xs text-gray-500">
+                      We'll use your profile URL to help generate your portfolio.
+                    </p>
+                    
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4 text-sm text-amber-800">
+                      <p>
+                        <strong>Note:</strong> Due to LinkedIn's restrictions, we cannot directly access all profile data.
+                        If the portfolio doesn't include all your information, please consider uploading your LinkedIn data export instead.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </Tab.Panel>

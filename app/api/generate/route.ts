@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body with error handling
     const body = await request.json().catch(() => ({}));
-    const { resumeText, linkedInUrl } = body;
+    const { resumeText, linkedInUrl, linkedInData } = body;
     
     // Validate input - need either resume text or LinkedIn URL
     if (!resumeText && !linkedInUrl) {
@@ -69,9 +69,17 @@ export async function POST(request: NextRequest) {
     let profileData;
     
     // Process LinkedIn URL if provided
-    if (linkedInUrl && !resumeText) {
+    if ((linkedInUrl || linkedInData) && !resumeText) {
       try {
         profileData = await fetchLinkedInProfile(linkedInUrl);
+        
+         if (linkedInData) {
+          // Use the directly uploaded LinkedIn data
+          profileData = linkedInData;
+        } else {
+          // Use the URL-based approach (with limitations)
+          profileData = await fetchLinkedInProfile(linkedInUrl);
+        }
         
         if (!profileData) {
           throw new Error("Failed to extract LinkedIn profile data");
@@ -236,7 +244,7 @@ async function generatePortfolioWithAI(profileData: any) {
     const prompt = createAIPrompt(profileData);
     
     const completion = await groq.chat.completions.create({
-      model: "llama3-70b-8192",
+      model: "meta-llama/llama-4-maverick-17b-128e-instruct",
       messages: [
         {
           role: "system",
