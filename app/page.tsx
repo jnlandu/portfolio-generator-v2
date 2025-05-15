@@ -1,102 +1,120 @@
-import Image from "next/image";
+'use client'
+
+import Head from 'next/head';
+import { useState } from 'react';
+import PortfolioForm from '../components/PortfolioForm';
+import PortfolioPreview from '@/components/PortfolioPreview';
+import ChatInterface from '@/components/ChatInterface';
+// import PortfolioPreview from '../components/PortfolioPreview';
+// import ChatInterface from '../components/ChatInterface';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [portfolioData, setPortfolioData] = useState(null);
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [loading, setLoading] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  // Function to handle portfolio generation
+  const generatePortfolio = async (data: any) => {
+    setLoading(true);
+    
+    try {
+      // In production, this would be an API call to OpenAI or other AI service
+      // For demo, we'll simulate a response
+      setTimeout(() => {
+        const samplePortfolio = `
+          <div class="portfolio">
+            <header class="bg-blue-500 text-white p-8">
+              <h1 class="text-3xl font-bold">${data.name || 'Jane Smith'}</h1>
+              <h2 class="text-xl">${data.title || 'Full Stack Developer'}</h2>
+            </header>
+            <main class="p-8">
+              <section class="mb-6">
+                <h3 class="text-xl font-semibold mb-2">About Me</h3>
+                <p>${data.about || 'Full Stack Developer with 5 years of experience in React, Node.js, and cloud technologies.'}</p>
+              </section>
+              <section class="mb-6">
+                <h3 class="text-xl font-semibold mb-2">Experience</h3>
+                <div class="mb-4">
+                  <h4 class="font-medium">${data.jobTitle || 'Senior Developer at TechCorp'}</h4>
+                  <p class="text-gray-600">${data.jobPeriod || '2020 - Present'}</p>
+                  <p>${data.jobDescription || 'Led development of cloud-based SaaS products.'}</p>
+                </div>
+              </section>
+            </main>
+          </div>
+        `;
+        
+        setPortfolioData(data);
+        setGeneratedCode(samplePortfolio);
+        setLoading(false);
+      }, 1500);
+    } catch (error) {
+      console.error('Error generating portfolio:', error);
+      setLoading(false);
+    }
+  };
+
+  // Function to update portfolio based on chat
+  const updatePortfolio = async (message: any) => {
+    // In production, this would send the message to AI to update the portfolio code
+    // For demo, we'll simulate a response
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Example update - in reality, this would be AI-generated
+        const updatedCode = generatedCode.replace(
+          'Full Stack Developer with 5 years of experience',
+          'Experienced Full Stack Developer specializing in React and Node.js'
+        );
+        
+        setGeneratedCode(updatedCode);
+        resolve({
+          success: true,
+          message: "I've updated your portfolio based on your request."
+        });
+      }, 1000);
+    });
+  };
+
+  return (
+    <div>
+      <Head>
+        <title>Portfolio Generator</title>
+        <meta name="description" content="Generate a portfolio from your CV or LinkedIn profile" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+
+      <main className="max-w-6xl mx-auto p-4">
+        <h1 className="text-3xl font-bold text-center my-8">AI Portfolio Generator</h1>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Form Section */}
+          <div>
+            <PortfolioForm 
+              onSubmit={generatePortfolio}
+              loading={loading}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </div>
+          
+          {/* Preview Section */}
+          <div>
+            <PortfolioPreview 
+              code={generatedCode} 
+            />
+          </div>
         </div>
+        
+        {/* Chat Interface - only show when we have generated code */}
+        {generatedCode && (
+          <div className="mt-8">
+            <ChatInterface 
+              onSendMessage={updatePortfolio}
+            />
+          </div>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      <footer className="mt-12 p-4 text-center text-gray-500">
+        <p>© 2025 Portfolio Generator</p>
       </footer>
     </div>
   );
