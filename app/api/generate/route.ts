@@ -13,30 +13,30 @@ const GENERATION_TIMEOUT = 60000; // 60 seconds
 
 export async function POST(request: NextRequest) {
   // Rate limiting (create this middleware in lib/rate-limit.ts)
-  try {
-    const { success, limit, remaining } = await rateLimit.check(
-      request.ip || "anonymous"
-    );
+  // try {
+  //   const { success, limit, remaining } = await rateLimit.check(
+  //     request.ip || "anonymous"
+  //   );
 
-    if (!success) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: "Rate limit exceeded. Please try again later."
-        },
-        { 
-          status: 429,
-          headers: {
-            "X-RateLimit-Limit": limit.toString(),
-            "X-RateLimit-Remaining": remaining.toString(),
-          }
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Rate limiting error:", error);
-    // Continue if rate limiting fails - don't block users due to internal errors
-  }
+  //   if (!success) {
+  //     return NextResponse.json(
+  //       { 
+  //         success: false, 
+  //         message: "Rate limit exceeded. Please try again later."
+  //       },
+  //       { 
+  //         status: 429,
+  //         headers: {
+  //           "X-RateLimit-Limit": limit.toString(),
+  //           "X-RateLimit-Remaining": remaining.toString(),
+  //         }
+  //       }
+  //     );
+  //   }
+  // } catch (error) {
+  //   console.error("Rate limiting error:", error);
+  //   // Continue if rate limiting fails - don't block users due to internal errors
+  // }
 
   try {
     // Parse request body with error handling
