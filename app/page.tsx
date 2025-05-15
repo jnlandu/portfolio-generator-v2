@@ -127,7 +127,14 @@ export default function Home() {
                 <div className="lg:col-span-5 bg-white rounded-xl shadow-lg overflow-hidden">
                   <div className="p-6">
                     <h3 className="text-xl font-medium mb-4 text-gray-800">Refine with AI</h3>
-                    <ChatInterface onSendMessage={updatePortfolio} />
+                   <div className="lg:col-span-5 bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div className="p-6">
+                      <ChatInterface 
+                        currentCode={generatedCode} // This must be the actual string of HTML code
+                        onCodeUpdate={(newCode: any) => setGeneratedCode(newCode)} 
+                      />
+                    </div>
+                  </div>
                   </div>
                 </div>
               </div>

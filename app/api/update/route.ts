@@ -1,3 +1,4 @@
+import { NextRequest, NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 
 // Initialize Groq client
@@ -5,36 +6,33 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    const { message, currentCode } = req.body;
+    const body = await request.json();
+    const { message, currentCode } = body;
     
     if (!message || !currentCode) {
-      return res.status(400).json({ 
+      return NextResponse.json({ 
         success: false, 
         message: 'Both message and currentCode are required' 
-      });
+      }, { status: 400 });
     }
     
     // Call the AI to update the portfolio based on the user's request
     const result = await updatePortfolioWithAI(message, currentCode);
     
-    res.status(200).json({ 
+    return NextResponse.json({ 
       success: true, 
       code: result.updatedCode,
       message: result.aiMessage
     });
   } catch (error) {
     console.error('Error in update API:', error);
-    res.status(500).json({ 
+    return NextResponse.json({ 
       success: false, 
       message: 'Error updating portfolio',
       error: error instanceof Error ? error.message : String(error)
-    });
+    }, { status: 500 });
   }
 }
 

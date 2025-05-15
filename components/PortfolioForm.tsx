@@ -20,6 +20,16 @@ export default function PortfolioForm({ onSubmit, loading }: any) {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+const handleTabChange = (tab: string) => {
+  setActiveTab(tab);
+  // Update useLinkedIn flag based on tab
+  setFormData(prev => ({
+    ...prev,
+    useLinkedIn: tab === 'linkedin'
+  }));
+};
+
   
 const handleSubmit = async (e: any) => {
     e.preventDefault();
@@ -61,22 +71,23 @@ const handleSubmit = async (e: any) => {
       <div className="flex border-b mb-4">
         <button
           className={`py-2 px-4 ${activeTab === 'paste' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('paste')}
+          onClick={() => handleTabChange('paste')}
         >
           Paste Resume
         </button>
         <button
           className={`py-2 px-4 ${activeTab === 'linkedin' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('linkedin')}
+          onClick={() => handleTabChange('linkedin')}
         >
           LinkedIn
         </button>
         <button
           className={`py-2 px-4 ${activeTab === 'manual' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('manual')}
+          onClick={() => handleTabChange('manual')}
         >
           Manual Input
         </button>
+        
       </div>
       
       <div>
