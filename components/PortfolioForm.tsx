@@ -10,7 +10,8 @@ export default function PortfolioForm({ onSubmit, loading }: any) {
     about: '',
     jobTitle: '',
     jobPeriod: '',
-    jobDescription: ''
+    jobDescription: '',
+    useLinkedIn: false,
   });
   
   const [activeTab, setActiveTab] = useState('paste');
@@ -20,9 +21,37 @@ export default function PortfolioForm({ onSubmit, loading }: any) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleSubmit = (e: any) => {
+const handleSubmit = async (e: any) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    try {
+      // Call the generate API endpoint
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          resumeText: formData.useLinkedIn ? '' : formData.resumeText,
+          linkedInUrl: formData.useLinkedIn ? formData.linkedInUrl : ''
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message);
+      }
+      
+      // Pass the generated portfolio back to the parent
+      onSubmit({
+        code: data.code,
+        metadata: data.metadata
+      });
+    } catch (error) {
+      console.error('Error generating portfolio:', error);
+      // Handle error (show error message to user)
+    }
   };
   
   return (
