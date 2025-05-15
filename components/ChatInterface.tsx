@@ -1,36 +1,66 @@
 import { useState } from 'react';
 
-export default function ChatInterface({ onSendMessage }) {
-  const [message, setMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState([
-    { role: 'assistant', content: 'How would you like to update your portfolio? You can ask me to change colors, add sections, or modify content.' }
-  ]);
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+export default function ChatInterface({ currentCode, onCodeUpdate }: any) {
+  // const [message, setMessage] = useState('');
+  // const [chatHistory, setChatHistory] = useState([
+  //   { role: 'assistant', content: 'How would you like to update your portfolio? You can ask me to change colors, add sections, or modify content.' }
+  // ]);
   const [isSending, setIsSending] = useState(false);
+   const [message, setMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(false);
   
-  const handleSend = async () => {
-    if (!message.trim() || isSending) return;
+  const sendMessage = async () => {
+    if (!message.trim()) return;
+    
+    setLoading(true);
     
     // Add user message to chat
     const userMessage = { role: 'user', content: message };
-    setChatHistory(prev => [...prev, userMessage]);
-    setMessage('');
-    setIsSending(true);
+    setChatHistory((prev : any) => [...prev, userMessage]);
     
     try {
-      // Call the update function
-      const response = await onSendMessage(message);
+      // Call the update API
+      const response = await fetch('/api/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: message,
+          currentCode: currentCode
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message);
+      }
       
       // Add AI response to chat
-      const aiMessage = { role: 'assistant', content: response.message };
-      setChatHistory(prev => [...prev, aiMessage]);
+      const aiMessage = { role: 'assistant', content: data.message };
+      setChatHistory((prev : any) => [...prev, aiMessage]);
+      
+      // Update the code in the parent component
+      onCodeUpdate(data.code);
+      
+      setLoading(false);
+      setMessage('');
     } catch (error) {
       console.error('Error updating portfolio:', error);
-      setChatHistory(prev => [...prev, { 
+      // Add error message to chat
+      const errorMessage = { 
         role: 'assistant', 
-        content: 'Sorry, I encountered an error while updating your portfolio.' 
-      }]);
-    } finally {
-      setIsSending(false);
+        content: 'Sorry, there was an error processing your request.' 
+      };
+      setChatHistory((prev : any) => [...prev, errorMessage]);
+      setLoading(false);
     }
   };
   
@@ -60,10 +90,10 @@ export default function ChatInterface({ onSendMessage }) {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Ask for changes to your portfolio..."
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
         />
         <button
-          onClick={handleSend}
+          onClick={sendMessage}
           disabled={isSending}
           className="bg-blue-500 text-white px-4 py-2 rounded-r hover:bg-blue-600 disabled:opacity-50"
         >

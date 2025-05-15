@@ -16,36 +16,10 @@ export default function Home() {
     setLoading(true);
     
     try {
-      // Simulate API call
-      setTimeout(() => {
-        const samplePortfolio = `
-          <div class="portfolio">
-            <header class="bg-blue-500 text-white p-8">
-              <h1 class="text-3xl font-bold">${data.name || 'Jane Smith'}</h1>
-              <h2 class="text-xl">${data.title || 'Full Stack Developer'}</h2>
-            </header>
-            <main class="p-8">
-              <section class="mb-6">
-                <h3 class="text-xl font-semibold mb-2">About Me</h3>
-                <p>${data.about || 'Full Stack Developer with 5 years of experience in React, Node.js, and cloud technologies.'}</p>
-              </section>
-              <section class="mb-6">
-                <h3 class="text-xl font-semibold mb-2">Experience</h3>
-                <div class="mb-4">
-                  <h4 class="font-medium">${data.jobTitle || 'Senior Developer at TechCorp'}</h4>
-                  <p class="text-gray-600">${data.jobPeriod || '2020 - Present'}</p>
-                  <p>${data.jobDescription || 'Led development of cloud-based SaaS products.'}</p>
-                </div>
-              </section>
-            </main>
-          </div>
-        `;
-        
-        setPortfolioData(data);
-        setGeneratedCode(samplePortfolio);
+        setPortfolioData(data.metadata);
+        setGeneratedCode(data.code);
         setLoading(false);
         setStep(2); // Move to preview step
-      }, 1500);
     } catch (error) {
       console.error('Error generating portfolio:', error);
       setLoading(false);
@@ -53,21 +27,37 @@ export default function Home() {
   };
 
   const updatePortfolio = async (message: any) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const updatedCode = generatedCode.replace(
-          'Full Stack Developer with 5 years of experience',
-          'Experienced Full Stack Developer specializing in React and Node.js'
-        );
-        
-        setGeneratedCode(updatedCode);
-        resolve({
-          success: true,
-          message: "I've updated your portfolio based on your request."
-        });
-      }, 1000);
+  try {
+    const response = await fetch('/api/update', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: message,
+        currentCode: generatedCode
+      }),
     });
-  };
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.message);
+    }
+    
+    setGeneratedCode(data.code);
+    return {
+      success: true,
+      message: data.message
+    };
+  } catch (error) {
+    console.error('Error updating portfolio:', error);
+    return {
+      success: false,
+      message: 'Failed to update the portfolio'
+    };
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
@@ -120,9 +110,16 @@ export default function Home() {
                 <div className="lg:col-span-7 bg-white rounded-xl shadow-lg overflow-hidden">
                   <div className="p-6">
                     <h3 className="text-xl font-medium mb-4 text-gray-800">Preview</h3>
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                    {/* <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
                       <PortfolioPreview code={generatedCode} />
-                    </div>
+                    </div> */}
+                    {loading ? (
+                        <div className="flex justify-center items-center h-64">
+                          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-600"></div>
+                        </div>
+                      ) : (
+                        <PortfolioPreview code={generatedCode} />
+                      )}
                   </div>
                 </div>
                 
