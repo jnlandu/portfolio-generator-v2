@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Tab } from '@headlessui/react';
-import { FileText, Linkedin, PenTool, Upload, ArrowRight, AlertCircle, Github, Copy, Download, RotateCw, CheckCircle, SplitSquareVertical, ExternalLink, X } from 'lucide-react';
+import { FileText, Linkedin, PenTool, Upload, ArrowRight, AlertCircle, Github, Copy, Download, RotateCw, CheckCircle, SplitSquareVertical, ExternalLink, X, Globe } from 'lucide-react';
 import { Document, Page, pdfjs } from "react-pdf";
 import debounce from 'lodash/debounce';
 
@@ -37,12 +37,51 @@ export default function InteractivePortfolioBuilder() {
   const [previewMode, setPreviewMode] = useState<'split' | 'full'>('split');
   const [isCopied, setIsCopied] = useState(false);
   const [autoGenerate, setAutoGenerate] = useState(true);
+  const [resizing, setResizing] = useState(false);
+  const [splitRatio, setSplitRatio] = useState(50); // 50% for each panel
+  
+  // References
+  const resizeHandleRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Form state
   const [fileError, setFileError] = useState('');
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [linkedinMethod, setLinkedinMethod] = useState<'export' | 'url'>('url');
   const [githubError, setGithubError] = useState('');
+  
+  // Handle resizing
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setResizing(true);
+  }, []);
+  
+  const stopResizing = useCallback(() => {
+    setResizing(false);
+  }, []);
+  
+  const resize = useCallback((e: MouseEvent) => {
+    if (resizing && containerRef.current) {
+      const containerWidth = containerRef.current.offsetWidth;
+      const mouseX = e.clientX - containerRef.current.getBoundingClientRect().left;
+      const newRatio = (mouseX / containerWidth) * 100;
+      
+      // Limit ratio to reasonable values (20% - 80%)
+      if (newRatio >= 20 && newRatio <= 80) {
+        setSplitRatio(newRatio);
+      }
+    }
+  }, [resizing]);
+  
+  useEffect(() => {
+    window.addEventListener('mousemove', resize);
+    window.addEventListener('mouseup', stopResizing);
+    
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [resize, stopResizing]);
   
   // Debounced generation function
   const debouncedGenerate = useCallback(
@@ -254,7 +293,7 @@ export default function InteractivePortfolioBuilder() {
   
   // Handle download
   const handleDownload = () => {
-    const blob = new Blob([portfolioHtml], { type: 'text/html' });
+    const blob = new Blob([getFullHtml()], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -265,11 +304,47 @@ export default function InteractivePortfolioBuilder() {
     URL.revokeObjectURL(url);
   };
   
+  // Get full HTML with DOCTYPE, head, etc.
+  const getFullHtml = () => {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${metadata?.name ? `${metadata.name}'s Portfolio` : 'Professional Portfolio'}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  ${portfolioHtml}
+</body>
+</html>`;
+  };
+  
+  // Open portfolio in new tab
+  const handlePublish = () => {
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(getFullHtml());
+      newWindow.document.close();
+    }
+  };
+  
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-2">
+      <div ref={containerRef} className="grid grid-cols-1 lg:grid-cols-2" style={{ 
+        gridTemplateColumns: previewMode === 'full' ? '0fr 1fr' : 
+          `${splitRatio}% calc(100% - ${splitRatio}% - 12px)` 
+      }}>
         {/* Form section */}
-        <div className={`${previewMode === 'full' && portfolioHtml ? 'hidden lg:block' : ''}`}>
+        <div className={`${previewMode === 'full' && portfolioHtml ? 'hidden lg:block' : ''} overflow-hidden`}>
           <Tab.Group onChange={(index: number) => {
             // Reset all flags
             setFormData(prev => ({
@@ -320,7 +395,8 @@ export default function InteractivePortfolioBuilder() {
               </Tab>
             </Tab.List>
             
-            <Tab.Panels className="p-6">
+            <Tab.Panels className="p-6 overflow-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+              {/* Tab panels here - keeping the existing code */}
               {/* Resume tab panel */}
               <Tab.Panel>
                 <div className="space-y-6">
@@ -650,35 +726,35 @@ export default function InteractivePortfolioBuilder() {
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
             <div className="flex flex-col sm:flex-row gap-3">
               <button
-                  type="button"
-                  onClick={() => generatePortfolio()}
-                  disabled={isGenerating || 
-                    (formData.useLinkedIn && linkedinMethod === 'url' && !formData.linkedInUrl) || 
-                    (formData.useLinkedIn && linkedinMethod === 'export' && !formData.linkedInData) ||
-                    (formData.useGithub && !formData.githubUsername) ||
-                    (!formData.useLinkedIn && !formData.useGithub && !formData.resumeText && !formData.name)}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:-translate-y-1 shadow-lg hover:shadow-xl"
-                >
-                  {isGenerating ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      <span className="mr-1">Creating Portfolio</span>
-                      <span className="dots-loading">
-                        <span className="dot"></span>
-                        <span className="dot"></span>
-                        <span className="dot"></span>
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      Generate Portfolio
-                      <ArrowRight className="h-5 w-5" />
-                    </>
-                  )}
-                </button>
+                type="button"
+                onClick={() => generatePortfolio()}
+                disabled={isGenerating || 
+                  (formData.useLinkedIn && linkedinMethod === 'url' && !formData.linkedInUrl) || 
+                  (formData.useLinkedIn && linkedinMethod === 'export' && !formData.linkedInData) ||
+                  (formData.useGithub && !formData.githubUsername) ||
+                  (!formData.useLinkedIn && !formData.useGithub && !formData.resumeText && !formData.name)}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:-translate-y-1 shadow-lg hover:shadow-xl"
+              >
+                {isGenerating ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="mr-1">Creating Portfolio</span>
+                    <span className="dots-loading">
+                      <span className="dot"></span>
+                      <span className="dot"></span>
+                      <span className="dot"></span>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Generate Portfolio
+                    <ArrowRight className="h-5 w-5" />
+                  </>
+                )}
+              </button>
               
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -712,8 +788,22 @@ export default function InteractivePortfolioBuilder() {
           </div>
         </div>
         
+        {/* Resizing handle */}
+        {previewMode !== 'full' && portfolioHtml && (
+          <div 
+            ref={resizeHandleRef}
+            className="hidden lg:block w-3 cursor-col-resize bg-gray-100 hover:bg-indigo-100 transition-colors absolute h-full z-10"
+            style={{ left: `calc(${splitRatio}% - 6px)` }}
+            onMouseDown={startResizing}
+          >
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="h-8 w-1 bg-gray-300 rounded-full"></div>
+            </div>
+          </div>
+        )}
+        
         {/* Preview section */}
-        <div className={`${(!portfolioHtml || (previewMode === 'split' && !portfolioHtml)) ? 'hidden lg:block' : ''} lg:border-l border-gray-200`}>
+        <div className={`${previewMode === 'split' && !portfolioHtml ? 'hidden lg:block' : ''} lg:border-l border-gray-200 overflow-hidden`}>
           {!portfolioHtml ? (
             <div className="h-full flex flex-col items-center justify-center p-6 bg-gray-50">
               <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
@@ -741,6 +831,13 @@ export default function InteractivePortfolioBuilder() {
                     </button>
                   )}
                   <button
+                    onClick={handlePublish}
+                    className="p-1.5 text-emerald-600 hover:text-emerald-700 rounded-md hover:bg-emerald-50 bg-emerald-50/50"
+                    title="Open in browser"
+                  >
+                    <Globe className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={handleCopyCode}
                     className={`p-1.5 rounded-md ${isCopied ? 'text-green-600 bg-green-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
                     title="Copy HTML"
@@ -767,7 +864,7 @@ export default function InteractivePortfolioBuilder() {
               <div className="flex-1 overflow-auto">
                 <iframe
                   title="Portfolio Preview"
-                  srcDoc={portfolioHtml}
+                  srcDoc={getFullHtml()}
                   className="w-full h-full border-0"
                   sandbox="allow-scripts"
                 />
@@ -776,6 +873,22 @@ export default function InteractivePortfolioBuilder() {
           )}
         </div>
       </div>
+      
+      {/* Publish button at the bottom */}
+      {portfolioHtml && (
+        <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-t border-indigo-100">
+          <button
+            onClick={handlePublish}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-300 shadow-md"
+          >
+            <Globe className="h-5 w-5" />
+            Publish Portfolio in Browser
+          </button>
+          <p className="mt-2 text-xs text-center text-indigo-700">
+            View your complete portfolio with all styles and formatting in a new browser window
+          </p>
+        </div>
+      )}
     </div>
   );
 }
