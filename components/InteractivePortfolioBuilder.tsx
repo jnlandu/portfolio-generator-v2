@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Tab } from '@headlessui/react';
-import { FileText, Linkedin, PenTool, Upload, ArrowRight, AlertCircle, Github, Copy, Download, RotateCw, CheckCircle, SplitSquareVertical, ExternalLink, X, Globe, ChevronLeft, ChevronRight, Smartphone, Tablet, Monitor, Maximize, Minimize } from 'lucide-react';
+import { FileText, Linkedin, PenTool, Upload, ArrowRight, AlertCircle, Github, Copy, Download, RotateCw, CheckCircle, SplitSquareVertical, ExternalLink, X, Globe, ChevronLeft, ChevronRight, Smartphone, Tablet, Monitor, Maximize, Minimize, Palette } from 'lucide-react';
 import { Document, Page, pdfjs } from "react-pdf";
 import debounce from 'lodash/debounce';
 
 // import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 // import 'react-pdf/dist/esm//Users/jeremie/dev/projects/ml/2025/portfolio/app/[slug]/page.tsx/Users/jeremie/dev/projects/ml/2025/portfolio/app/[slug]/page.tsxPage/TextLayer.css';
 import LinkedInDataUpload from './LinkedInDataUpload';
+import DesignCustomizer, { DesignChanges } from './DesignCustomizer';
+import { colorThemes, fontPairings } from '@/lib/designConstants';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -52,6 +54,7 @@ export default function InteractivePortfolioBuilder() {
   const [selectedDevice, setSelectedDevice] = useState<keyof typeof devicePresets>('desktop');
   const [isFullscreen, setIsFullscreen] = useState(false);
   
+  
   // References
   const resizeHandleRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -63,6 +66,16 @@ export default function InteractivePortfolioBuilder() {
   const [linkedinMethod, setLinkedinMethod] = useState<'export' | 'url'>('url');
   const [githubError, setGithubError] = useState('');
   
+  // Design customizer
+  const [designSettings, setDesignSettings] = useState({
+    template: 'minimal',
+    colorTheme: 'light',
+    fontPairing: 'inter-roboto',
+    layout: 'centered'
+  });
+  const [isDesignCustomizerOpen, setIsDesignCustomizerOpen] = useState(false);
+
+
   // Toggle form collapse
   const toggleFormCollapse = () => {
     if (!isFormCollapsed) {
@@ -199,6 +212,9 @@ export default function InteractivePortfolioBuilder() {
     
     return fullText;
   };
+
+
+  
   
   // Handle file uploads
   const handleFileUpload = async (e: any) => {
@@ -355,28 +371,97 @@ export default function InteractivePortfolioBuilder() {
     URL.revokeObjectURL(url);
   };
   
-  // Get full HTML with DOCTYPE, head, etc.
-  const getFullHtml = () => {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${metadata?.name ? `${metadata.name}'s Portfolio` : 'Professional Portfolio'}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      margin: 0;
-      padding: 0;
+    // Add new function to apply design changes
+  const handleApplyDesignChanges = (changes: DesignChanges) => {
+    setDesignSettings(changes);
+    // If you have a portfolio already generated, you might want to
+    // regenerate it with the new design settings
+    if (portfolioHtml) {
+      generatePortfolio();
     }
-  </style>
-</head>
-<body>
-  ${portfolioHtml}
-</body>
-</html>`;
+  };
+
+  // Update getFullHtml to include the design settings
+  const getFullHtml = () => {
+    const colorTheme = colorThemes.find(t => t.id === designSettings.colorTheme)?.colors;
+    const fontPairing = fontPairings.find(f => f.id === designSettings.fontPairing);
+    
+    return `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${metadata?.name ? `${metadata.name}'s Portfolio` : 'Professional Portfolio'}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          ${fontPairing ? `<link href="${fontPairing.cssImport}" rel="stylesheet">` : 
+            '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">'}
+          <style>
+            :root {
+              ${colorTheme ? `
+              --color-primary: ${colorTheme.primary};
+              --color-secondary: ${colorTheme.secondary};
+              --color-accent: ${colorTheme.accent};
+              --color-background: ${colorTheme.background};
+              --color-text: ${colorTheme.text};
+              ` : ''}
+            }
+            
+            body {
+              font-family: ${fontPairing ? `'${fontPairing.body}', ${fontPairing.fallback}` : "'Inter', sans-serif"};
+              margin: 0;
+              padding: 0;
+              color: var(--color-text, #1f2937);
+              background: var(--color-background, white);
+            }
+            
+            h1, h2, h3, h4, h5, h6 {
+              font-family: ${fontPairing ? `'${fontPairing.title}', ${fontPairing.fallback}` : "'Inter', sans-serif"};
+              color: var(--color-primary, #1e40af);
+            }
+            
+            a {
+              color: var(--color-accent, #8b5cf6);
+            }
+            
+            .btn-primary {
+              background-color: var(--color-secondary, #3b82f6);
+              color: white;
+            }
+            
+            /* Layout specific styles */
+            ${designSettings.layout === 'sidebar' ? `
+            .portfolio-container {
+              display: grid;
+              grid-template-columns: minmax(250px, 25%) 1fr;
+              min-height: 100vh;
+            }
+            ` : ''}
+            
+            ${designSettings.layout === 'grid' ? `
+            .projects-container {
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+              gap: 2rem;
+            }
+            ` : ''}
+            
+            /* Additional template-specific styles would go here */
+          </style>
+        </head>
+        <body>
+          <!-- Template wrapper with correct layout class -->
+          <div class="portfolio-wrapper ${designSettings.template} ${designSettings.layout}">
+            ${portfolioHtml}
+          </div>
+          
+          <script>
+            // Add any needed JavaScript for the template
+            document.addEventListener('DOMContentLoaded', function() {
+              // Initialize any template-specific functionality
+            });
+          </script>
+        </body>
+        </html>`;
   };
   
   // Open portfolio in new tab
@@ -995,6 +1080,14 @@ export default function InteractivePortfolioBuilder() {
                   >
                     {isCopied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </button>
+                  {/*  Design customization */}
+                  <button
+                    onClick={() => setIsDesignCustomizerOpen(true)}
+                    className="p-1.5 text-indigo-600 hover:text-indigo-700 rounded-md hover:bg-indigo-50"
+                    title="Customize design"
+                  >
+                    <Palette className="h-4 w-4" />
+                  </button>
                   <button
                     onClick={handleDownload}
                     className="p-1.5 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
@@ -1012,6 +1105,13 @@ export default function InteractivePortfolioBuilder() {
                   </button>
                 </div>
               </div>
+              {/* Design customizer modal */}
+              <DesignCustomizer
+                isOpen={isDesignCustomizerOpen}
+                onClose={() => setIsDesignCustomizerOpen(false)}
+                onApplyChanges={handleApplyDesignChanges}
+                currentSettings={designSettings}
+              />
               
               <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-100 p-4">
                 <div 
