@@ -35,3 +35,32 @@ body {
  .animate-fadeIn {
   animation: fadeIn 0.3s ease-out forwards;
 }
+
+@keyframes dotPulse {
+  0% { opacity: 0.4; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.dots-loading {
+  display: flex;
+  align-items: center;
+}
+
+.dots-loading .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: white;
+  margin: 0 2px;
+  display: inline-block;
+  animation: dotPulse 1.5s infinite ease-in-out;
+}
+
+.dots-loading .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dots-loading .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
