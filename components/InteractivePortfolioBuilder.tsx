@@ -6,8 +6,8 @@ import { FileText, Linkedin, PenTool, Upload, ArrowRight, AlertCircle, Github, C
 import { Document, Page, pdfjs } from "react-pdf";
 import debounce from 'lodash/debounce';
 
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
+// import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+// import 'react-pdf/dist/esm//Users/jeremie/dev/projects/ml/2025/portfolio/app/[slug]/page.tsx/Users/jeremie/dev/projects/ml/2025/portfolio/app/[slug]/page.tsxPage/TextLayer.css';
 import LinkedInDataUpload from './LinkedInDataUpload';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -1026,7 +1026,7 @@ export default function InteractivePortfolioBuilder() {
                     overflow: 'hidden'
                   }}
                 >
-                  {/* Device notch for mobile */}
+                  {/* Device notch for mobile clear*/}
                   {(selectedDevice === 'mobile' || selectedDevice === 'smallMobile') && (
                     <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-16 h-4 bg-gray-800 rounded-b-lg z-10"></div>
                   )}
