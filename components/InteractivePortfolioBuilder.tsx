@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Tab } from '@headlessui/react';
-import { FileText, Linkedin, PenTool, Upload, ArrowRight, AlertCircle, Github, Copy, Download, RotateCw, CheckCircle, SplitSquareVertical, ExternalLink, X, Globe, ChevronLeft, ChevronRight, Smartphone, Tablet, Monitor, Maximize, Minimize, Palette } from 'lucide-react';
+import { FileText, Linkedin, PenTool, Upload, ArrowRight, AlertCircle, Github, Copy, Download, RotateCw, CheckCircle, SplitSquareVertical, ExternalLink, X, Globe, ChevronLeft, ChevronRight, Smartphone, Tablet, Monitor, Maximize, Minimize, Palette, Layout } from 'lucide-react';
 import { Document, Page, pdfjs } from "react-pdf";
 import debounce from 'lodash/debounce';
 
@@ -11,6 +11,7 @@ import debounce from 'lodash/debounce';
 import LinkedInDataUpload from './LinkedInDataUpload';
 import DesignCustomizer, { DesignChanges } from './DesignCustomizer';
 import { colorThemes, fontPairings } from '@/lib/designConstants';
+import TemplateGallery from './TemplateGallery';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -21,6 +22,7 @@ const devicePresets = {
   mobile: { width: '375px', height: '667px', label: 'Mobile' },
   smallMobile: { width: '320px', height: '568px', label: 'Small Mobile' }
 };
+
 
 export default function InteractivePortfolioBuilder() {
   const [formData, setFormData] = useState({
@@ -39,6 +41,13 @@ export default function InteractivePortfolioBuilder() {
     resumeFile: null
   });
   
+  const [designOptions, setDesignOptions] = useState<DesignChanges>({
+    colorTheme: 'indigo',
+    fontPairing: 'inter',
+    layout: 'classic'
+  });
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | undefined>();
   // Preview state
   const [portfolioHtml, setPortfolioHtml] = useState('');
   const [metadata, setMetadata] = useState(null);
@@ -53,6 +62,7 @@ export default function InteractivePortfolioBuilder() {
   const [isFormCollapsed, setIsFormCollapsed] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<keyof typeof devicePresets>('desktop');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showDesignPanel, setShowDesignPanel] = useState(false); // Add this line
   
   
   // References
@@ -73,7 +83,6 @@ export default function InteractivePortfolioBuilder() {
     fontPairing: 'inter-roboto',
     layout: 'centered'
   });
-  const [isDesignCustomizerOpen, setIsDesignCustomizerOpen] = useState(false);
 
 
   // Toggle form collapse
@@ -380,6 +389,39 @@ export default function InteractivePortfolioBuilder() {
       generatePortfolio();
     }
   };
+
+  const handleDesignChange = (changes: DesignChanges) => {
+  setDesignOptions(changes);
+  
+  // Apply changes to the portfolio preview
+  if (portfolioHtml) {
+    // In a real implementation, you would regenerate the HTML with the new design options
+    // or apply the changes directly via DOM manipulation in the iframe
+    setIsGenerating(true);
+    
+    setTimeout(() => {
+      generatePortfolio({
+        ...formData,
+        designOptions: changes
+      });
+    }, 500);
+  }
+};
+
+const handleTemplateSelect = (templateId: string) => {
+  setSelectedTemplate(templateId);
+  
+  // In a real implementation, you'd apply the template and regenerate the portfolio
+  setIsGenerating(true);
+  
+  setTimeout(() => {
+    generatePortfolio({
+      ...formData,
+      templateId: templateId,
+      designOptions
+    });
+  }, 500);
+};
 
   // Update getFullHtml to include the design settings
   const getFullHtml = () => {
@@ -1082,12 +1124,53 @@ export default function InteractivePortfolioBuilder() {
                   </button>
                   {/*  Design customization */}
                   <button
-                    onClick={() => setIsDesignCustomizerOpen(true)}
-                    className="p-1.5 text-indigo-600 hover:text-indigo-700 rounded-md hover:bg-indigo-50"
-                    title="Customize design"
+                    onClick={() => setShowDesignPanel(!showDesignPanel)}
+                    className={`p-1.5 rounded-md ${showDesignPanel ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
+                    title="Customize Design"
                   >
                     <Palette className="h-4 w-4" />
                   </button>
+                  {/* Template gallery button */}
+                  <button
+                    onClick={() => setShowTemplateGallery(!showTemplateGallery)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+                  >
+                    <Layout className="h-4 w-4" />
+                    Change Template
+                  </button>
+                  {/* Template Gallery Modal */}
+                    {showTemplateGallery && (
+                      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 flex items-center justify-center p-4">
+                        <div className="relative bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+                          <div className="flex justify-between items-center p-4 border-b">
+                            <h2 className="text-xl font-bold">Choose a Template</h2>
+                            <button 
+                              onClick={() => setShowTemplateGallery(false)}
+                              className="text-gray-500 hover:text-gray-700"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          </div>
+                          
+                          <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 70px)' }}>
+                            <TemplateGallery 
+                              onSelectTemplate={handleTemplateSelect}
+                              selectedTemplateId={selectedTemplate}
+                            />
+                          </div>
+                          
+                          <div className="p-4 border-t bg-gray-50 flex justify-end">
+                            <button
+                              onClick={() => setShowTemplateGallery(false)}
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                            >
+                              Apply Template
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                   <button
                     onClick={handleDownload}
                     className="p-1.5 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100"
@@ -1106,12 +1189,15 @@ export default function InteractivePortfolioBuilder() {
                 </div>
               </div>
               {/* Design customizer modal */}
-              <DesignCustomizer
-                isOpen={isDesignCustomizerOpen}
-                onClose={() => setIsDesignCustomizerOpen(false)}
-                onApplyChanges={handleApplyDesignChanges}
-                currentSettings={designSettings}
-              />
+             {/* Design Customizer Panel */}
+              {showDesignPanel && (
+                <div className="border-t border-gray-200 bg-gray-50">
+                  <DesignCustomizer
+                    onChange={handleDesignChange}
+                    currentDesign={designOptions}
+                  />
+                </div>
+              )}
               
               <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-100 p-4">
                 <div 

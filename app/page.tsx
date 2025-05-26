@@ -6,7 +6,6 @@ import HeroSection from '@/components/HeroSection';
 import FeaturesSelection from '@/components/FeaturesSelection';
 import HowItWorksSection from '@/components/HowItWorksSection';
 import CallToActionSection from '@/components/CallToActionSection';
-import PricingSection from '@/components/Pricing';
 
 
 export default function LandingPage() {
@@ -16,7 +15,6 @@ export default function LandingPage() {
       <HeroSection />
       <FeaturesSelection />
       <HowItWorksSection />
-      <PricingSection />
       {/* You can add other sections like Testimonials, Pricing Preview, etc. here */}
       {/* <CallToActionSection /> */}
       <Footer />
